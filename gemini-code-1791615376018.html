@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Audio Stem Separator</title>
+    <style>
+        :root {
+            --bg-color: #0f111a;
+            --card-bg: #1a1c29;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --text: #f3f4f6;
+            --text-secondary: #9ca3af;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            justify-content: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            box-sizing: border-box;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        h1 {
+            margin-top: 0;
+            font-size: 1.8rem;
+            text-align: center;
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        p.subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+        }
+        .upload-box {
+            border: 2px dashed rgba(255,255,255,0.15);
+            padding: 2rem;
+            text-align: center;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .upload-box:hover {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.03);
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .btn {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 1.5rem;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        .btn:hover {
+            background-color: var(--accent-hover);
+        }
+        .btn:disabled {
+            background-color: #374151;
+            cursor: not-allowed;
+        }
+        #loader {
+            display: none;
+            text-align: center;
+            margin-top: 1.5rem;
+            color: var(--text-secondary);
+        }
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: var(--accent);
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .results {
+            margin-top: 2rem;
+            display: none;
+        }
+        .stem-card {
+            background: rgba(0,0,0,0.2);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+        .stem-title {
+            font-weight: 600;
+            text-transform: capitalize;
+            color: #e5e7eb;
+        }
+        audio {
+            width: 100%;
+            height: 35px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>AI Stem Separator</h1>
+        <p class="subtitle">Separa voces, batería, bajo e instrumentos con Inteligencia Artificial (Demucs)</p>
+
+        <div class="upload-box" id="dropZone" onclick="document.getElementById('audioFile').click()">
+            <p id="fileLabel">📁 Haz clic aquí o arrastra tu canción MP3 / WAV</p>
+            <input type="file" id="audioFile" accept="audio/*" onchange="handleFileSelect(this)">
+        </div>
+
+        <button class="btn" id="processBtn" onclick="uploadAndProcess()" disabled>Procesar con IA</button>
+
+        <div id="loader">
+            <div class="spinner"></div>
+            <p>Procesando audio con IA (esto puede tomar un minuto)...</p>
+        </div>
+
+        <div class="results" id="resultsSection">
+            <h3>Pistas Separadas:</h3>
+            <div id="stemsList"></div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+
+        function handleFileSelect(input) {
+            if (input.files && input.files[0]) {
+                selectedFile = input.files[0];
+                document.getElementById('fileLabel').innerText = `📄 ${selectedFile.name}`;
+                document.getElementById('processBtn').disabled = false;
+            }
+        }
+
+        async function uploadAndProcess() {
+            if (!selectedFile) return;
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            document.getElementById('processBtn').style.display = 'none';
+            document.getElementById('loader').style.display = 'block';
+            document.getElementById('resultsSection').style.display = 'none';
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    let stemsHtml = '';
+                    for (const [stemName, fileUrl] of Object.entries(data.files)) {
+                        stemsHtml += `
+                            <div class="stem-card">
+                                <span class="stem-title">${stemName}</span>
+                                <audio controls src="${fileUrl}"></audio>
+                                <a href="${fileUrl}" download style="color: var(--accent); font-size: 0.85rem; text-decoration: none;">Descargar ${stemName}.wav</a>
+                            </div>
+                        `;
+                    }
+                    document.getElementById('stemsList').innerHTML = stemsHtml;
+                    document.getElementById('loader').style.display = 'none';
+                    document.getElementById('resultsSection').style.display = 'block';
+                } else {
+                    alert('Error: ' + data.error);
+                    document.getElementById('loader').style.display = 'none';
+                    document.getElementById('processBtn').style.display = 'block';
+                }
+            } catch (err) {
+                alert('Ocurrió un error en la conexión.');
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('processBtn').style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
